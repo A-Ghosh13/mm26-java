@@ -9,7 +9,7 @@ import mech.mania.starter_pack.domain.model.board.*;
 import mech.mania.starter_pack.domain.memory.MemoryObject;
 import mech.mania.starter_pack.domain.model.items.Item;
 import mech.mania.starter_pack.domain.model.items.Weapon;
-
+import java.util.logging.Logger;
 import java.util.List;
 
 public class PlayerStrategy implements Strategy {
@@ -21,6 +21,7 @@ public class PlayerStrategy implements Strategy {
      */
     private MemoryObject memory;
     private API api;
+    private static Logger log = Logger.getLogger(PlayerStrategy.class.toString());
 
     public PlayerStrategy(MemoryObject memory){
         this.memory = memory;
@@ -65,22 +66,25 @@ public class PlayerStrategy implements Strategy {
         String lastAction = memory.getValueString("lastAction");
         if (lastAction != null && lastAction.equals("PICKUP")) {
             memory.setValue("lastAction", "EQUIP");
+            log.info("equip");
             return new CharacterDecision(CharacterDecision.DecisionType.EQUIP, myPlayer.getFirstInventoryIndex());
         }
 
         // pick up first item on current tile
         List<Item> tileItems = board.getTileAtPosition(currPos).getItems();
-        if (tileItems != null || !tileItems.isEmpty()) {
+        if (tileItems != null && !tileItems.isEmpty()) {
             memory.setValue("lastAction", "PICKUP");
+            log.info("pickup");
             return new CharacterDecision(CharacterDecision.DecisionType.PICKUP, 0);
         }
 
         Weapon weapon = myPlayer.getWeapon();
         List<Character> enemies = api.findEnemies(currPos);
 
-        // if no enemies close by, move to spawn point
-        if (enemies == null || enemies.isEmpty()) {
+        //move to spawn point if health below 20% max health
+        if (myPlayer.getCurrentHealth() < myPlayer.getMaxHealth() * 0.2) {
             memory.setValue("lastAction", "MOVE");
+            log.info("move to spawn");
             return new CharacterDecision(CharacterDecision.DecisionType.MOVE, findPositionToMove(myPlayer, myPlayer.getSpawnPoint()));
         }
 
@@ -88,11 +92,13 @@ public class PlayerStrategy implements Strategy {
         Position enemyPos = enemies.get(0).getPosition();
         if (currPos.manhattanDistance(enemyPos) <= weapon.getRange()) {
             memory.setValue("lastAction", "ATTACK");
+            log.info("attack");
             return new CharacterDecision(CharacterDecision.DecisionType.ATTACK, enemyPos);
         }
 
         // move towards closest enemy
         memory.setValue("lastAction", "MOVE");
+        log.info("move to monster");
         return new CharacterDecision(CharacterDecision.DecisionType.MOVE, findPositionToMove(myPlayer, enemyPos));
     }
 }
